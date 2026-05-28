@@ -28,10 +28,12 @@ async def save_upload_file(file: UploadFile, upload_dir: Optional[Union[str, Pat
     target_dir = Path(upload_dir) if upload_dir else paths.uploads
     paths.ensure_dir(target_dir)
 
-    # 使用原始文件名，添加时间戳避免冲突
+    # 使用原始文件名（仅文件名，丢弃路径），添加时间戳避免冲突
     import time
+    from pathlib import Path as _Path
     timestamp = int(time.time())
-    filename = f"{timestamp}_{file.filename}"
+    pure_name = _Path(file.filename).name
+    filename = f"{timestamp}_{pure_name}"
     file_path = target_dir / filename
 
     with open(file_path, "wb") as f:

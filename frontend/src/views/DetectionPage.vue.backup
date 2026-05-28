@@ -42,8 +42,6 @@
           type="file"
           :accept="tab.accept"
           :multiple="tab.multiple"
-          :webkitdirectory="tab.key === 'folder' || undefined"
-          :directory="tab.key === 'folder' || undefined"
           class="file-input"
           @change="handleFileChange($event, tab.key)"
           @click.stop="activateTab(tab.key)"
@@ -444,7 +442,7 @@
                 占比 <strong>{{ dominantRatio }}%</strong>。
               </p>
               <p v-if="forestRatio > 20" class="advice-tip">
-                🌲 森林覆盖率较高，生态环境良好。
+                🌲 林地覆盖率较高，生态环境良好。
               </p>
               <p v-if="buildingRatio > 30" class="advice-tip">
                 🏙️ 建筑用地占比较高，城镇化程度较强。
@@ -556,10 +554,10 @@ const getStatRatio = (classId) => {
   const s = detectionResult.value.class_stats.find(x => x.class_id === classId);
   return s ? s.pixel_ratio * 100 : 0;
 };
-const forestRatio = computed(() => getStatRatio(6));
-const buildingRatio = computed(() => getStatRatio(2));
-const agriRatio = computed(() => getStatRatio(5));
-const waterRatio = computed(() => getStatRatio(4));
+const forestRatio = computed(() => getStatRatio(5));
+const buildingRatio = computed(() => getStatRatio(1));
+const agriRatio = computed(() => getStatRatio(6));
+const waterRatio = computed(() => getStatRatio(3));
 
 // 批量结果切换
 const selectBatchResult = (index) => {
@@ -673,7 +671,6 @@ const performBatchDetection = async (files) => {
       formData.append("model_name", selectedModel.value);
 
       const response = await detectSingleImage(formData);
-      console.log('API response:', file.name, response);
       if (response.success && response.data) {
         const item = {
           fileName: file.name,
@@ -690,9 +687,7 @@ const performBatchDetection = async (files) => {
       } else {
         batchErrors.value.push(file.name);
       }
-    } catch (error) {
-      const detail = error.response?.data?.detail || error.message || '未知错误';
-      console.error('Upload failed:', file.name, detail);
+    } catch {
       batchErrors.value.push(file.name);
     } finally {
       batchDone.value++;
@@ -1008,19 +1003,14 @@ watch(activeTab, (newVal) => {
   display: flex;
   gap: 20px;
   align-items: flex-start;
-  min-width: 0;
-  max-height: calc(100vh - 240px);
 }
 
 .left-panel {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 320px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 100%;
-  overflow-y: auto;
 }
 
 .panel-header {
@@ -1082,16 +1072,17 @@ watch(activeTab, (newVal) => {
   display: flex;
   gap: 16px;
   flex: 0 0 auto;
-  align-items: stretch;
+  height: 400px;
+  align-items: center;
 }
 .image-compare.single {
-  max-height: 420px;
+  height: 420px;
 }
 .image-compare.grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   flex: 0 0 auto;
-  max-height: 320px;
+  height: 320px;
 }
 .image-card {
   flex: 1;
@@ -1100,8 +1091,7 @@ watch(activeTab, (newVal) => {
   overflow: hidden;
   background: rgba(15, 23, 42, 0.4);
   border: 1px solid var(--border-color);
-  aspect-ratio: 1 / 1;
-  max-height: 420px;
+  height: 100%;
 }
 .image-card.wide {
   flex: none;
@@ -1141,13 +1131,11 @@ watch(activeTab, (newVal) => {
 
 /* 右侧面板 */
 .right-panel {
-  flex: 0 0 200px;
+  width: 220px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
 }
 
 .info-card, .result-card {

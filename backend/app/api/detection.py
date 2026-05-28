@@ -72,7 +72,10 @@ async def detect_single_image(
             data=result
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"分类失败: {str(e)}")
+        import traceback
+        tb = traceback.format_exc()
+        print("[DETECTION ERROR]", tb)
+        raise HTTPException(status_code=500, detail=f"分类失败: {str(e)}\n{tb}")
 
 
 # ── 历史记录接口 ──────────────────────────────────────────────────────────────
@@ -237,12 +240,12 @@ async def get_target_list():
     """获取模型实际训练的7类土地类型列表（含颜色与说明）"""
     targets = [
         TargetItem(id=0, name="background", chinese_name="背景", description="图像边缘或无意义区域"),
-        TargetItem(id=1, name="building", chinese_name="建筑", description="房屋、厂房、大棚等"),
-        TargetItem(id=2, name="road", chinese_name="道路", description="公路、乡村道路"),
-        TargetItem(id=3, name="water", chinese_name="水域", description="河流、湖泊、池塘"),
-        TargetItem(id=4, name="barren", chinese_name="裸地", description="未耕种土地、荒地"),
-        TargetItem(id=5, name="forest", chinese_name="林地", description="森林、树木覆盖区"),
-        TargetItem(id=6, name="agriculture", chinese_name="耕地", description="农田、种植区"),
+        TargetItem(id=1, name="barren", chinese_name="荒地", description="未耕种土地、荒地、裸土"),
+        TargetItem(id=2, name="building", chinese_name="建筑", description="房屋、厂房、大棚等"),
+        TargetItem(id=3, name="road", chinese_name="道路", description="公路、乡村道路"),
+        TargetItem(id=4, name="water", chinese_name="水域", description="河流、湖泊、池塘"),
+        TargetItem(id=5, name="agriculture", chinese_name="耕地", description="农田、种植区"),
+        TargetItem(id=6, name="forest", chinese_name="森林", description="森林、树木覆盖区"),
     ]
     return TargetListResponse(
         success=True,

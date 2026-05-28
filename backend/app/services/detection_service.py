@@ -61,13 +61,13 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ─── 7 类土地分类定义 ───
 LAND_CLASSES = {
-    0: {"name": "背景",   "english": "background", "color": [0, 0, 0]},
-    1: {"name": "建筑",   "english": "building",    "color": [255, 0, 0]},
-    2: {"name": "道路",   "english": "road",        "color": [255, 255, 0]},
-    3: {"name": "水域",   "english": "water",       "color": [0, 0, 255]},
-    4: {"name": "裸地",   "english": "barren",      "color": [139, 69, 19]},
-    5: {"name": "林地",   "english": "forest",      "color": [0, 128, 0]},
-    6: {"name": "耕地",   "english": "agriculture", "color": [0, 255, 0]},
+    0: {"name": "背景",   "english": "background",  "color": [0, 0, 0]},
+    1: {"name": "荒地",   "english": "barren",      "color": [139, 69, 19]},
+    2: {"name": "建筑",   "english": "building",    "color": [255, 0, 0]},
+    3: {"name": "道路",   "english": "road",        "color": [255, 255, 0]},
+    4: {"name": "水域",   "english": "water",       "color": [0, 0, 255]},
+    5: {"name": "耕地",   "english": "agriculture", "color": [0, 255, 0]},
+    6: {"name": "森林",   "english": "forest",      "color": [0, 128, 0]},
 }
 
 NUM_CLASSES = 7  # 0-6
