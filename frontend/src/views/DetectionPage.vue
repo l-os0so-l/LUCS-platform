@@ -27,49 +27,6 @@
       </div>
     </div>
 
-    <!-- 统计横幅 -->
-    <div class="stats-banner animate-fade-in-up" style="animation-delay: 0.1s">
-      <div class="stat-item">
-        <div class="stat-icon-wrap cyan">
-          <el-icon><Aim /></el-icon>
-        </div>
-        <div class="stat-data">
-          <div class="stat-num">20+</div>
-          <div class="stat-label">支持类型</div>
-        </div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-icon-wrap purple">
-          <el-icon><TrendCharts /></el-icon>
-        </div>
-        <div class="stat-data">
-          <div class="stat-num">98.5%</div>
-          <div class="stat-label">分类精度</div>
-        </div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-icon-wrap pink">
-          <el-icon><Timer /></el-icon>
-        </div>
-        <div class="stat-data">
-          <div class="stat-num">&lt;2s</div>
-          <div class="stat-label">平均耗时</div>
-        </div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-icon-wrap green">
-          <el-icon><CircleCheck /></el-icon>
-        </div>
-        <div class="stat-data">
-          <div class="stat-num">10K+</div>
-          <div class="stat-label">处理总量</div>
-        </div>
-      </div>
-    </div>
-
     <!-- 功能选项卡 -->
     <div class="function-tabs animate-fade-in-up" style="animation-delay: 0.15s">
       <div
@@ -87,7 +44,7 @@
           :multiple="tab.multiple"
           class="file-input"
           @change="handleFileChange($event, tab.key)"
-          @click.stop="activeTab = tab.key"
+          @click.stop="activateTab(tab.key)"
           ref="fileInputs"
         />
         <div class="tab-icon-wrap" :class="tab.key">
@@ -119,6 +76,192 @@
 
     <!-- 主内容区域 -->
     <div class="main-content animate-fade-in-up" style="animation-delay: 0.25s">
+      <!-- ========== 视频检测模式 ========== -->
+      <template v-if="activeTab === 'video'">
+        <!-- 左侧视频面板 -->
+        <div class="left-panel glass-card video-panel">
+          <div class="panel-header">
+            <div class="panel-title-wrap">
+              <el-icon class="panel-icon"><Monitor /></el-icon>
+              <span class="panel-title">视频分类</span>
+            </div>
+            <div class="panel-tags">
+              <span class="tech-badge" v-if="isRealtimeDetecting">
+                <el-icon><Loading /></el-icon>
+                实时检测中
+              </span>
+              <span class="tech-badge wait-badge" v-else-if="videoUrl">
+                <el-icon><VideoPlay /></el-icon>
+                准备就绪
+              </span>
+              <span class="tech-badge wait-badge" v-else>
+                <el-icon><Loading /></el-icon>
+                等待上传
+              </span>
+            </div>
+          </div>
+
+          <!-- 视频播放器区域 -->
+          <div class="video-player-area">
+            <div v-if="!videoUrl" class="video-placeholder" @click="handleTabClick('video')">
+              <el-icon class="placeholder-icon" :size="48"><Monitor /></el-icon>
+              <p class="placeholder-text">点击上传视频</p>
+              <p class="placeholder-desc">支持 mp4、avi、mov 等格式</p>
+            </div>
+            <div v-else class="video-player-wrap">
+              <video
+                ref="videoRef"
+                :src="videoUrl"
+                class="video-player"
+                controls
+                @ended="stopRealtimeDetection"
+              />
+            </div>
+          </div>
+
+          <!-- 实时分割结果展示 -->
+          <div v-if="videoUrl" class="video-result-area">
+            <div class="toolbar">
+              <button
+                :class="['tool-btn', { active: videoShowMode === 'overlay' }]"
+                @click="videoShowMode = 'overlay'"
+              >
+                <el-icon><View /></el-icon>
+                叠加图
+              </button>
+              <button
+                :class="['tool-btn', { active: videoShowMode === 'side' }]"
+                @click="videoShowMode = 'side'"
+              >
+                <el-icon><CopyDocument /></el-icon>
+                原图+分割
+              </button>
+            </div>
+            <div v-if="!videoFrameResult" class="empty-state-mini">
+              <div class="empty-orb">
+                <el-icon><CircleCheck /></el-icon>
+              </div>
+              <p class="empty-text">等待检测</p>
+              <p class="empty-desc">开始实时检测后，分割结果将显示在这里</p>
+            </div>
+            <div v-else-if="videoShowMode === 'overlay'" class="image-compare single">
+              <div class="image-card wide">
+                <img :src="videoFrameOverlay" alt="实时叠加图" class="compare-image" />
+                <div class="image-label">实时叠加图（第 {{ currentFrameIndex }} 帧）</div>
+              </div>
+            </div>
+            <div v-else-if="videoShowMode === 'side'" class="image-compare">
+              <div class="image-card">
+                <video :src="videoUrl" class="compare-image" style="object-fit: contain; background: #000;" muted />
+                <div class="image-label">原始帧</div>
+              </div>
+              <div class="image-card">
+                <img :src="videoFrameMask" alt="实时分割图" class="compare-image" />
+                <div class="image-label">分割结果</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧视频设置面板 -->
+        <div class="right-panel">
+          <div class="info-card glass-card">
+            <div class="card-title-small">
+              <el-icon><SetUp /></el-icon>
+              检测设置
+            </div>
+            <div class="info-item">
+              <span class="info-label">检测模式</span>
+              <span class="info-value highlight">实时帧检测</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">分类模型</span>
+              <span class="info-value">{{ selectedModel }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">模型架构</span>
+              <span class="info-value">DeepLabV3+ / ResNet50</span>
+            </div>
+          </div>
+
+          <!-- 帧率设置 -->
+          <div class="result-card glass-card">
+            <div class="card-title-small">
+              <el-icon><Timer /></el-icon>
+              检测帧率
+            </div>
+            <div class="param-item">
+              <div class="param-label">
+                <span>每秒检测 {{ detectionFPS }} 帧</span>
+              </div>
+              <el-slider v-model="detectionFPS" :min="1" :max="10" :step="1" :disabled="isRealtimeDetecting" />
+              <div class="param-tip">越高检测越频繁，但可能增加延迟</div>
+            </div>
+          </div>
+
+          <!-- 实时像素统计 -->
+          <div class="result-card glass-card">
+            <div class="card-title-small">
+              <el-icon><Histogram /></el-icon>
+              当前帧像素统计
+            </div>
+            <div v-if="!videoFrameResult" class="empty-state-mini">
+              <div class="empty-orb">
+                <el-icon><CircleCheck /></el-icon>
+              </div>
+              <p class="empty-text">未识别到类型</p>
+              <p class="empty-desc">开始检测后显示当前帧统计</p>
+            </div>
+            <div v-else class="stats-list">
+              <div
+                v-for="stat in sortedVideoStats"
+                :key="stat.class_id"
+                class="stat-row"
+              >
+                <div class="stat-bar-wrapper">
+                  <div
+                    class="stat-bar"
+                    :style="{ width: (stat.pixel_ratio * 100).toFixed(1) + '%', background: `linear-gradient(90deg, ${stat.color_hex}, ${stat.color_hex}aa)` }"
+                  ></div>
+                </div>
+                <div class="stat-info">
+                  <span class="stat-name">{{ stat.class_name }}</span>
+                  <span class="stat-ratio">{{ (stat.pixel_ratio * 100).toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="action-buttons">
+            <button class="btn-secondary" @click="handleTabClick('video')">
+              <el-icon><Upload /></el-icon>
+              更换视频
+            </button>
+            <button
+              v-if="!isRealtimeDetecting"
+              class="btn-primary glow-btn"
+              :disabled="!videoUrl"
+              @click="startRealtimeDetection"
+            >
+              <el-icon><VideoPlay /></el-icon>
+              开始检测
+            </button>
+            <button
+              v-else
+              class="btn-primary glow-btn"
+              style="background: linear-gradient(135deg, #ef4444, #dc2626);"
+              @click="stopRealtimeDetection"
+            >
+              <el-icon><VideoPause /></el-icon>
+              停止检测
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ========== 图片检测模式 ========== -->
+      <template v-else>
       <!-- 左侧分类结果区域 -->
       <div class="left-panel glass-card">
         <div class="panel-header">
@@ -219,21 +362,31 @@
       <div class="right-panel">
         <!-- 模型信息 -->
         <div class="info-card glass-card">
-          <div class="card-title-small">
+          <div class="card-title-small info-header" @click="toggleModelInfo">
             <el-icon><Cpu /></el-icon>
-            模型信息
+            <span>模型信息</span>
+            <div class="toggle-indicator">
+              <el-icon :size="16">
+                <component :is="modelInfoCollapsed ? Plus : Minus" />
+              </el-icon>
+            </div>
           </div>
-          <div class="info-item">
-            <span class="info-label">分类模型</span>
-            <span class="info-value highlight">{{ selectedModel }}</span>
+          <div v-show="!modelInfoCollapsed" class="info-details">
+            <div class="info-item">
+              <span class="info-label">分类模型</span>
+              <span class="info-value highlight">{{ selectedModel }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">模型架构</span>
+              <span class="info-value">DeepLabV3+ / ResNet50</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">输入尺寸</span>
+              <span class="info-value">512 × 512</span>
+            </div>
           </div>
-          <div class="info-item">
-            <span class="info-label">模型架构</span>
-            <span class="info-value">DeepLabV3+ / ResNet50</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">输入尺寸</span>
-            <span class="info-value">512 × 512</span>
+          <div v-if="modelInfoCollapsed" class="info-collapsed-note">
+            点击展开模型信息
           </div>
         </div>
 
@@ -266,20 +419,6 @@
                 <span class="stat-name">{{ stat.class_name }}</span>
                 <span class="stat-ratio">{{ (stat.pixel_ratio * 100).toFixed(1) }}%</span>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 图例 -->
-        <div class="result-card glass-card" v-if="detectionResult">
-          <div class="card-title-small">
-            <el-icon><Grid /></el-icon>
-            图例
-          </div>
-          <div class="legend-list">
-            <div v-for="stat in detectionResult.class_stats" :key="stat.class_id" class="legend-item">
-              <span class="legend-color" :style="{ background: stat.color_hex, boxShadow: `0 0 8px ${stat.color_hex}66` }"></span>
-              <span class="legend-name">{{ stat.class_name }}</span>
             </div>
           </div>
         </div>
@@ -330,20 +469,21 @@
           </button>
         </div>
       </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch, onUnmounted, nextTick } from "vue";
 import { ElMessage, ElLoading } from "element-plus";
 import {
   Picture, Plus, Folder, Monitor, Check, Grid, View,
   CircleCheck, CircleClose, ChatDotRound, Refresh, Minus, Loading,
   ArrowRight, SetUp, Aim, TrendCharts, Timer, CopyDocument,
-  Histogram, Cpu, MagicStick, Document,
+  Histogram, Cpu, MagicStick, Document, VideoPlay, VideoPause, Upload,
 } from "@element-plus/icons-vue";
-import { detectSingleImage } from "../api/detection";
+import { detectSingleImage, detectVideoFrame } from "../api/detection";
 
 const selectedModel = ref("land-seg-v1");
 const activeTab = ref("");
@@ -353,6 +493,7 @@ const resultImage = ref("");
 const overlayImage = ref("");
 const detectionResult = ref(null);
 const isDetecting = ref(false);
+const modelInfoCollapsed = ref(true);
 
 // 批量模式状态
 const batchMode = ref(false);
@@ -361,6 +502,21 @@ const batchDone = ref(0);
 const batchErrors = ref([]);
 const batchResults = ref([]);
 const batchCurrentIndex = ref(0);
+
+// ─── 视频检测状态 ───
+const videoMode = ref(false);           // 是否处于视频检测模式
+const videoFile = ref(null);            // 视频文件对象
+const videoUrl = ref("");               // 视频本地预览 URL
+const videoRef = ref(null);             // video 元素引用
+const isRealtimeDetecting = ref(false); // 实时检测中
+const videoFrameResult = ref(null);     // 当前帧分割结果
+const videoFrameOverlay = ref("");      // 当前帧叠加图 base64
+const videoFrameMask = ref("");         // 当前帧分割图 base64
+const currentFrameIndex = ref(0);       // 当前帧序号
+const detectionFPS = ref(3);            // 检测帧率（fps）
+const videoShowMode = ref("overlay");   // 视频结果展示模式: overlay / side
+let detectionTimer = null;              // 检测定时器
+let isProcessingFrame = false;          // 防止同时处理多帧
 
 const batchProgress = computed(() =>
   batchTotal.value > 0 ? Math.round((batchDone.value / batchTotal.value) * 100) : 0
@@ -385,6 +541,11 @@ const dominantRatio = computed(() => {
   if (nonBg.length === 0) return "0";
   const top = nonBg.reduce((a, b) => a.pixel_ratio > b.pixel_ratio ? a : b);
   return (top.pixel_ratio * 100).toFixed(1);
+});
+
+const sortedVideoStats = computed(() => {
+  if (!videoFrameResult.value) return [];
+  return [...videoFrameResult.value.class_stats].sort((a, b) => b.pixel_ratio - a.pixel_ratio);
 });
 
 // 各类别占比（用于建议）
@@ -415,10 +576,27 @@ const functionTabs = [
   { key: "video", name: "视频分类", desc: "上传视频自动分类", icon: Monitor, accept: "video/*", multiple: false },
 ];
 
+const toggleModelInfo = () => {
+  modelInfoCollapsed.value = !modelInfoCollapsed.value;
+};
+
+const resetDetectionState = () => {
+  detectionResult.value = null;
+  originalImage.value = "";
+  resultImage.value = "";
+  overlayImage.value = "";
+};
+
+const activateTab = (key) => {
+  activeTab.value = key;
+  resetBatchState();
+  resetDetectionState();
+};
+
 const fileInputs = ref([]);
 
 const handleTabClick = (key) => {
-  activeTab.value = key;
+  activateTab(key);
   const input = document.querySelector(`.function-tab[data-key="${key}"] .file-input`);
   if (input) input.click();
 };
@@ -440,7 +618,7 @@ const handleFileChange = async (event, tabKey) => {
     }
     await performBatchDetection(imageFiles);
   } else if (tabKey === "video") {
-    ElMessage.info("视频分类功能即将上线，敬请期待");
+    await handleVideoUpload(files[0]);
   }
 
   setTimeout(() => { event.target.value = ''; }, 0);
@@ -523,11 +701,161 @@ const performBatchDetection = async (files) => {
   }
 };
 
+// ─── 视频检测方法 ───
+
+const handleVideoUpload = async (file) => {
+  if (!file.type.startsWith("video/")) {
+    ElMessage.warning("请选择有效的视频文件");
+    return;
+  }
+  batchMode.value = false;
+  batchTotal.value = 0;
+  batchDone.value = 0;
+  if (videoUrl.value) {
+    URL.revokeObjectURL(videoUrl.value);
+  }
+  videoFile.value = file;
+  videoUrl.value = URL.createObjectURL(file);
+  videoMode.value = true;
+  videoFrameResult.value = null;
+  videoFrameOverlay.value = "";
+  videoFrameMask.value = "";
+  currentFrameIndex.value = 0;
+  isRealtimeDetecting.value = false;
+  ElMessage.success("视频加载成功，点击开始检测");
+};
+
+const startRealtimeDetection = async () => {
+  batchMode.value = false;
+  batchTotal.value = 0;
+  batchDone.value = 0;
+  const video = videoRef.value;
+  if (!video) {
+    ElMessage.error("视频未加载");
+    return;
+  }
+  if (video.readyState < 2) {
+    ElMessage.info("正在加载视频，请稍候...");
+    await new Promise((resolve) => {
+      video.onloadeddata = resolve;
+      video.onerror = () => {
+        ElMessage.error("视频加载失败");
+        resolve();
+      };
+      setTimeout(resolve, 10000);
+    });
+  }
+  if (video.readyState < 2) {
+    ElMessage.error("视频加载失败");
+    return;
+  }
+
+  isRealtimeDetecting.value = true;
+  currentFrameIndex.value = 0;
+  videoFrameResult.value = null;
+  isProcessingFrame = false;
+
+  try {
+    await video.play();
+    ElMessage.success("开始实时检测");
+  } catch (err) {
+    console.error("播放失败:", err);
+    ElMessage.warning("自动播放被阻止，请手动点击播放");
+  }
+
+  const intervalMs = Math.floor(1000 / detectionFPS.value);
+  detectionTimer = setInterval(captureAndDetectFrame, intervalMs);
+};
+
+const stopRealtimeDetection = () => {
+  const video = videoRef.value;
+  if (detectionTimer) {
+    clearInterval(detectionTimer);
+    detectionTimer = null;
+  }
+  if (video) {
+    video.pause();
+  }
+  isRealtimeDetecting.value = false;
+  isProcessingFrame = false;
+};
+
+const captureAndDetectFrame = async () => {
+  const video = videoRef.value;
+  if (!video || video.paused || video.ended || isProcessingFrame) return;
+
+  isProcessingFrame = true;
+  try {
+    // 创建临时 Canvas 捕获当前帧
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const ctx = tempCanvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    // 压缩为 JPEG 以加速传输
+    const blob = await new Promise((resolve) => {
+      tempCanvas.toBlob((b) => resolve(b), "image/jpeg", 0.6);
+    });
+
+    if (!blob) {
+      isProcessingFrame = false;
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", blob, "frame.jpg");
+    formData.append("model_name", selectedModel.value);
+
+    const response = await detectVideoFrame(formData);
+
+    if (response.success && response.data) {
+      videoFrameResult.value = response.data;
+      videoFrameMask.value = "data:image/png;base64," + response.data.mask_base64;
+      videoFrameOverlay.value = "data:image/png;base64," + response.data.overlay_base64;
+      currentFrameIndex.value++;
+    }
+  } catch (error) {
+    console.error("帧检测失败:", error);
+  } finally {
+    isProcessingFrame = false;
+  }
+};
+
 const handleRedetect = () => {
   const key = activeTab.value === "batch" || activeTab.value === "folder" ? activeTab.value : "single";
   const input = document.querySelector(`.function-tab[data-key="${key}"] .file-input`);
   if (input) input.click();
 };
+
+// 组件卸载时清理
+onUnmounted(() => {
+  stopRealtimeDetection();
+  if (videoUrl.value) {
+    URL.revokeObjectURL(videoUrl.value);
+  }
+});
+
+const resetBatchState = () => {
+  batchMode.value = false;
+  batchTotal.value = 0;
+  batchDone.value = 0;
+  batchErrors.value = [];
+  batchResults.value = [];
+  batchCurrentIndex.value = 0;
+};
+
+// 监听选项卡切换，离开视频时停止检测，并清理批量进度
+watch(activeTab, (newVal) => {
+  if (newVal !== "video" && isRealtimeDetecting.value) {
+    stopRealtimeDetection();
+  }
+  videoMode.value = newVal === "video";
+
+  if (newVal === "video" || newVal === "single") {
+    resetBatchState();
+  }
+});
 </script>
 
 <style scoped>
@@ -595,57 +923,6 @@ const handleRedetect = () => {
 .selector-icon {
   color: var(--accent-cyan);
   font-size: 16px;
-}
-
-/* 统计横幅 */
-.stats-banner {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: 20px 28px;
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-lg);
-  margin-bottom: 24px;
-}
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 1;
-  padding: 0 20px;
-}
-.stat-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: white;
-}
-.stat-icon-wrap.cyan { background: linear-gradient(135deg, #06b6d4, #0891b2); box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3); }
-.stat-icon-wrap.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3); }
-.stat-icon-wrap.pink { background: linear-gradient(135deg, #ec4899, #db2777); box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3); }
-.stat-icon-wrap.green { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
-.stat-data {
-  line-height: 1.3;
-}
-.stat-num {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-heading);
-}
-.stat-label {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.stat-divider {
-  width: 1px;
-  height: 40px;
-  background: var(--border-color);
 }
 
 /* 功能选项卡 */
@@ -724,12 +1001,16 @@ const handleRedetect = () => {
 /* 主内容区域 */
 .main-content {
   display: flex;
-  gap: 24px;
+  gap: 20px;
+  align-items: flex-start;
 }
 
 .left-panel {
-  flex: 1;
-  padding: 20px;
+  flex: 0 0 320px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .panel-header {
@@ -790,15 +1071,18 @@ const handleRedetect = () => {
 .image-compare {
   display: flex;
   gap: 16px;
-  height: 320px;
+  flex: 0 0 auto;
+  height: 400px;
+  align-items: center;
 }
 .image-compare.single {
-  height: 400px;
+  height: 420px;
 }
 .image-compare.grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  height: 260px;
+  flex: 0 0 auto;
+  height: 320px;
 }
 .image-card {
   flex: 1;
@@ -807,6 +1091,7 @@ const handleRedetect = () => {
   overflow: hidden;
   background: rgba(15, 23, 42, 0.4);
   border: 1px solid var(--border-color);
+  height: 100%;
 }
 .image-card.wide {
   flex: none;
@@ -815,7 +1100,7 @@ const handleRedetect = () => {
 .compare-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 .image-label {
   position: absolute;
@@ -846,10 +1131,11 @@ const handleRedetect = () => {
 
 /* 右侧面板 */
 .right-panel {
-  width: 340px;
+  width: 220px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  min-height: 0;
 }
 
 .info-card, .result-card {
@@ -868,6 +1154,31 @@ const handleRedetect = () => {
 .card-title-small .el-icon {
   font-size: 15px;
   color: var(--accent-cyan);
+}
+
+.info-header {
+  cursor: pointer;
+  justify-content: space-between;
+}
+.info-header span {
+  flex: 1;
+}
+.toggle-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+.info-header:hover .toggle-indicator {
+  background: rgba(255, 255, 255, 0.08);
+}
+.info-collapsed-note {
+  padding: 12px 0 4px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .info-item {
@@ -1144,5 +1455,81 @@ const handleRedetect = () => {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+/* ─── 视频检测样式 ─── */
+.video-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.video-panel .video-player-area,
+.video-panel .video-result-area {
+  flex: 1;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.video-panel .video-player-area {
+  margin-bottom: 0;
+}
+.video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 280px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.video-placeholder:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(6, 182, 212, 0.05);
+}
+.video-placeholder .placeholder-icon {
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.video-placeholder .placeholder-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.video-placeholder .placeholder-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.video-player-wrap {
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  background: #000;
+  flex: 1;
+  min-height: 0;
+}
+.video-player {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  display: block;
+  object-fit: contain;
+}
+.video-result-area {
+  margin-top: 0;
+}
+.param-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.param-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.param-tip {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 </style>

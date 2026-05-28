@@ -38,7 +38,11 @@
             <el-icon v-else><User /></el-icon>
           </div>
           <div class="message-bubble">
-            <div class="message-content">{{ msg.content }}</div>
+            <div
+              class="message-content"
+              :class="{ 'md-content': msg.role === 'ai' }"
+              v-html="msg.role === 'ai' ? marked.parse(msg.content) : msg.content"
+            />
             <div class="message-time">{{ msg.time }}</div>
           </div>
         </div>
@@ -84,6 +88,9 @@
 <script setup>
 import { ref, nextTick } from "vue";
 import { ChatDotRound, User, Promotion } from "@element-plus/icons-vue";
+import { chatWithAI } from "../api/qa";
+import { ElMessage } from "element-plus";
+import { marked } from "marked";
 
 const question = ref("");
 const sending = ref(false);
@@ -132,24 +139,35 @@ async function sendMessage() {
   sending.value = true;
   scrollToBottom();
 
-  // 模拟 AI 思考
   isTyping.value = true;
   scrollToBottom();
 
-  await new Promise((r) => setTimeout(r, 1500));
+  try {
+    const res = await chatWithAI({ message: text });
+    isTyping.value = false;
+    if (res.success && res.data) {
+      messages.value.push({
+        role: "ai",
+        content: res.data.reply,
+        time: getCurrentTime(),
+      });
+    } else {
+      messages.value.push({
+        role: "ai",
+        content: "抱歉，服务暂时不可用，请稍后再试。",
+        time: getCurrentTime(),
+      });
+    }
+  } catch (error) {
+    isTyping.value = false;
+    const msg = error.response?.data?.detail || error.message || "请求失败";
+    messages.value.push({
+      role: "ai",
+      content: `抱歉，${msg}`,
+      time: getCurrentTime(),
+    });
+  }
 
-  isTyping.value = false;
-  const replies = [
-    "这是一个很好的问题！根据平台的算法模型，我们可以精准识别多达20种土地类型，包括耕地、林地、水域、建筑等。",
-    "平台的分类精度平均达到98.5%以上，采用的是DeepLabV3+架构结合ResNet50骨干网络。",
-    "建议您上传清晰度较高的遥感影像，分辨率越高，分类效果越好。同时选择合适的模型也很重要。",
-    "遥感影像的土地利用分类是环境监测、城市规划等领域的重要技术手段。",
-  ];
-  messages.value.push({
-    role: "ai",
-    content: replies[Math.floor(Math.random() * replies.length)],
-    time: getCurrentTime(),
-  });
   sending.value = false;
   scrollToBottom();
 }
@@ -168,19 +186,29 @@ async function sendMessage() {
 .page-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.page-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+.page-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
 }
 .header-icon-wrap {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: var(--accent-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 22px;
+  font-size: 18px;
   box-shadow: var(--accent-glow);
   flex-shrink: 0;
 }
@@ -188,21 +216,21 @@ async function sendMessage() {
 .quick-tags {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .quick-label {
   font-size: 12px;
   color: var(--text-muted);
 }
 .quick-tag {
-  padding: 6px 14px;
+  padding: 4px 10px;
   background: rgba(6, 182, 212, 0.08);
   border: 1px solid rgba(6, 182, 212, 0.2);
-  border-radius: 20px;
+  border-radius: 16px;
   color: var(--accent-cyan);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -222,8 +250,9 @@ async function sendMessage() {
 
 .chat-messages {
   flex: 1;
-  padding: 24px;
+  padding: 16px 20px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .message {
@@ -278,6 +307,83 @@ async function sendMessage() {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-secondary);
+  word-break: break-word;
+}
+
+/* Markdown 样式 */
+.md-content :deep(h1),
+.md-content :deep(h2),
+.md-content :deep(h3),
+.md-content :deep(h4) {
+  margin: 12px 0 8px;
+  color: var(--text-heading);
+  font-weight: 600;
+}
+.md-content :deep(p) {
+  margin: 6px 0;
+}
+.md-content :deep(ul),
+.md-content :deep(ol) {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.md-content :deep(li) {
+  margin: 3px 0;
+}
+.md-content :deep(strong) {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+.md-content :deep(code) {
+  background: rgba(6, 182, 212, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--accent-cyan);
+}
+.md-content :deep(pre) {
+  background: rgba(15, 23, 42, 0.8);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+  border: 1px solid var(--border-color);
+}
+.md-content :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  color: var(--text-secondary);
+}
+.md-content :deep(blockquote) {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent-cyan);
+  color: var(--text-muted);
+}
+.md-content :deep(a) {
+  color: var(--accent-cyan);
+  text-decoration: none;
+}
+.md-content :deep(a:hover) {
+  text-decoration: underline;
+}
+.md-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.md-content :deep(th),
+.md-content :deep(td) {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+.md-content :deep(th) {
+  background: rgba(6, 182, 212, 0.08);
+  font-weight: 600;
+  color: var(--text-heading);
 }
 .message-time {
   font-size: 11px;

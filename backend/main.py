@@ -6,7 +6,11 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.api.detection import router as detection_router
+from app.api.auth import router as auth_router
+from app.api.users import router as users_router
+from app.api.qa import router as qa_router
 from app.utils.file_utils import ensure_directories
+from app.database import engine, Base
 
 # ---------------------------------------------------------------------------
 # Logging setup — must happen before any module imports that use logging
@@ -51,6 +55,16 @@ app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
 
 # API routers
 app.include_router(detection_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+app.include_router(qa_router, prefix="/api")
+logger.info("Routers registered: detection, auth, users, qa")
+
+# 数据库初始化
+@app.on_event("startup")
+async def init_database():
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables initialized")
 
 
 @app.get("/")

@@ -106,6 +106,8 @@
 import { ref, reactive } from "vue";
 import { Picture, User, Lock } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
+import { login } from "../api/auth";
+import { ElMessage } from "element-plus";
 
 const router = useRouter();
 
@@ -128,13 +130,24 @@ const loginRules = {
 
 const loginFormRef = ref(null);
 
-const handleLogin = () => {
-  loginFormRef.value.validate((valid) => {
-    if (valid) {
-      localStorage.setItem("token", "mock-token");
+const handleLogin = async () => {
+  const valid = await loginFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+  try {
+    const res = await login({
+      username: loginForm.username,
+      password: loginForm.password,
+    });
+    if (res.success && res.token) {
+      localStorage.setItem("token", res.token);
+      ElMessage.success("登录成功");
       router.push("/detection");
+    } else {
+      ElMessage.error(res.message || "登录失败");
     }
-  });
+  } catch (error) {
+    ElMessage.error(error.message || "登录失败，请检查用户名和密码");
+  }
 };
 
 const getParticleStyle = (n) => {

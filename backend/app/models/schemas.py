@@ -67,6 +67,26 @@ class DeleteResponse(BaseModel):
     message: str
 
 
+# ─── 视频实时分割 Schema ───
+
+class RealtimeSegmentationResult(BaseModel):
+    """视频实时帧分割结果（不保存到数据库/文件系统）"""
+    class_stats: List[ClassStat]       # 各类别像素统计
+    total_pixels: int
+    inference_time: float              # 推理耗时（秒）
+    model_name: str
+    image_width: int
+    image_height: int
+    mask_base64: Optional[str] = None   # 伪彩色分割图 base64
+    overlay_base64: Optional[str] = None  # 叠加图 base64
+
+
+class RealtimeSegmentationResponse(BaseModel):
+    success: bool
+    message: str
+    data: Optional[RealtimeSegmentationResult] = None
+
+
 class TargetItem(BaseModel):
     id: int
     name: str

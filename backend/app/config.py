@@ -26,6 +26,9 @@ class Settings(BaseModel):
     IOU_THRESHOLD: float = 0.45
     
     CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000"]
+    
+    # Kimi (Moonshot) API Key
+    MOONSHOT_API_KEY: str = ""
 
 
 def get_settings() -> Settings:

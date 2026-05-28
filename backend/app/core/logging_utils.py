@@ -504,7 +504,7 @@ try:
                 raise
             finally:
                 latency = (datetime.now(timezone.utc) - start).total_seconds() * 1000
-                status = getattr(response, "status_code", 500)
+                status = getattr(response, "status_code", 500) if 'response' in locals() else 500
                 self.logger.info(
                     "← %s %s %d — %.2f ms",
                     request.method,
@@ -514,9 +514,9 @@ try:
                     extra={"status_code": status, "latency_ms": latency},
                 )
                 RequestIdFilter.clear_request_id()
-
-            response.headers["x-request-id"] = request_id
-            return response
+                if 'response' in locals() and response is not None:
+                    response.headers["x-request-id"] = request_id
+                    return response
 
     def add_request_logging(app: FastAPI, skip_paths: Optional[set[str]] = None) -> None:
         """Attach request logging middleware to a FastAPI application."""

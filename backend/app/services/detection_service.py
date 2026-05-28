@@ -44,12 +44,15 @@ if not hasattr(np, '_core'):
             setattr(_np_core_um, _n, getattr(_ncumu, _n))
     sys.modules['numpy._core._multiarray_umath'] = _np_core_um
 
+import base64
+import io
+
 import torch
 from PIL import Image
 
 from app.config import settings
 from app.core.paths import paths
-from app.models.schemas import ClassStat, SegmentationResult
+from app.models.schemas import ClassStat, SegmentationResult, RealtimeSegmentationResult
 from app.utils.file_utils import get_file_url
 
 logger = logging.getLogger(__name__)
@@ -280,6 +283,64 @@ class DetectionService:
             inference_time=round(inference_time, 3),
             model_name=model_name,
             created_at=datetime.now(),
+        )
+
+    def detect_frame_realtime(self, pil_img, model_name="land-seg-v1"):
+        """
+        实时视频帧分割（不保存到数据库和文件系统）
+
+        参数:
+            pil_img: PIL Image 对象 (RGB)
+            model_name: 模型名称
+
+        返回:
+            RealtimeSegmentationResult: 包含 base64 图片和像素统计
+        """
+        if self.model is None:
+            raise RuntimeError(
+                "分割模型未加载，请将 land_seg_best.pth 放入 backend/models/ 目录后重启服务"
+            )
+
+        start_time = time.time()
+        orig_img = np.array(pil_img)
+
+        # 推理（加锁，PyTorch 模型非线程安全）
+        with self._lock:
+            mask = _predict(self.model, pil_img)
+
+        # 统计
+        class_stats, total_pixels = _compute_class_stats(mask)
+
+        # 生成伪彩色分割图和叠加图
+        h, w = mask.shape
+        color_mask = PALETTE[mask]
+        overlay = (orig_img * 0.6 + color_mask * 0.4).astype(np.uint8)
+
+        # 编码为 base64（PNG 格式，无损）
+        def _img_to_base64(img_arr):
+            buf = io.BytesIO()
+            Image.fromarray(img_arr).save(buf, format="PNG")
+            return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+        mask_base64 = _img_to_base64(color_mask)
+        overlay_base64 = _img_to_base64(overlay)
+
+        inference_time = time.time() - start_time
+        logger.info(
+            "Realtime segmentation: time=%.3fs classes_found=%d",
+            inference_time,
+            len([s for s in class_stats if s.pixel_count > 0 and s.class_id > 0]),
+        )
+
+        return RealtimeSegmentationResult(
+            class_stats=class_stats,
+            total_pixels=total_pixels,
+            inference_time=round(inference_time, 3),
+            model_name=model_name,
+            image_width=w,
+            image_height=h,
+            mask_base64=mask_base64,
+            overlay_base64=overlay_base64,
         )
 
 

@@ -142,6 +142,9 @@
       width="720px"
       class="detail-dialog"
       destroy-on-close
+      append-to-body
+      align-center
+      :z-index="3000"
     >
       <div v-if="detailRecord" class="detail-content">
         <div class="detail-images">
@@ -675,11 +678,23 @@ onMounted(() => {
 :deep(.detail-dialog .el-dialog) {
   background: #1a1a2e;
   border: 1px solid var(--border-glow);
+  max-width: 92vw;
+  margin: 0 auto;
 }
 :deep(.detail-dialog .el-dialog__title) {
   color: var(--text-heading);
 }
 :deep(.detail-dialog .el-dialog__body) {
   color: var(--text-primary);
+}
+
+/* 响应式：小屏幕下图片换行 */
+@media (max-width: 768px) {
+  .detail-images {
+    flex-direction: column;
+  }
+  :deep(.detail-dialog .el-dialog) {
+    width: 95vw !important;
+  }
 }
 </style>

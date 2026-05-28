@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
 
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -9,6 +8,10 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   error => {
@@ -16,13 +19,15 @@ service.interceptors.request.use(
   }
 )
 
-// 响应拦截器
+// 响应拦截器 — 提取后端错误信息并写入 error.message，由调用方决定如何提示
 service.interceptors.response.use(
   response => {
     return response.data
   },
   error => {
-    ElMessage.error('请求失败：' + (error.response?.data?.message || '服务器错误'))
+    const data = error.response?.data
+    const msg = data?.message || data?.detail || '服务器错误'
+    error.message = msg
     return Promise.reject(error)
   }
 )

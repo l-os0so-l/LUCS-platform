@@ -101,7 +101,7 @@
 }
 
 .sidebar {
-  width: 240px;
+  width: 200px;
   flex-shrink: 0;
   background: rgba(6, 10, 20, 0.85);
   backdrop-filter: blur(20px);

@@ -60,7 +60,7 @@
             </div>
           </el-form-item>
 
-          <el-form-item class="agree-terms">
+          <el-form-item class="agree-terms" prop="agree">
             <el-checkbox v-model="registerForm.agree" class="remember-check">
               <span class="check-text">我已阅读并同意</span>
             </el-checkbox>
@@ -99,6 +99,8 @@
 import { ref, reactive } from "vue";
 import { UserFilled, User, Message, Lock } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
+import { register } from "../api/auth";
+import { ElMessage } from "element-plus";
 
 const router = useRouter();
 
@@ -148,13 +150,26 @@ const registerRules = {
 
 const registerFormRef = ref(null);
 
-const handleRegister = () => {
-  registerFormRef.value.validate((valid) => {
-    if (valid) {
-      localStorage.setItem("token", "mock-token");
+const handleRegister = async () => {
+  const valid = await registerFormRef.value.validate().catch(() => false);
+  if (!valid) return;
+  try {
+    const res = await register({
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password,
+      nickname: registerForm.username,
+    });
+    if (res.success && res.token) {
+      localStorage.setItem("token", res.token);
+      ElMessage.success("注册成功");
       router.push("/detection");
+    } else {
+      ElMessage.error(res.message || "注册失败");
     }
-  });
+  } catch (error) {
+    ElMessage.error(error.message || "注册失败，请稍后重试");
+  }
 };
 
 const getParticleStyle = (n) => {

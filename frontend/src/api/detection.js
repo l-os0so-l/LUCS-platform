@@ -37,6 +37,19 @@ export const deleteDetectionHistory = (id) => {
   })
 }
 
+// 视频实时帧分类接口
+export const detectVideoFrame = (data) => {
+  return request({
+    url: '/detection/video-frame',
+    method: 'post',
+    data,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 15000
+  })
+}
+
 // 获取土地类型列表
 export const getTargetList = () => {
   return request({

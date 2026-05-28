@@ -19,20 +19,20 @@
               <div class="avatar-status"></div>
             </div>
             <div class="user-basic-info">
-              <div class="user-name">Lily</div>
+              <div class="user-name">{{ user.nickname || user.username || '未登录' }}</div>
               <div class="user-role">
-                <span class="role-badge">普通用户</span>
+                <span class="role-badge">{{ user.role }}</span>
               </div>
               <div class="user-meta">
-                <span><el-icon><Message /></el-icon> lily@example.com</span>
-                <span><el-icon><Location /></el-icon> 北京市</span>
+                <span><el-icon><Message /></el-icon> {{ user.email || '未设置邮箱' }}</span>
+                <span><el-icon><Location /></el-icon> {{ user.location || '未设置位置' }}</span>
               </div>
             </div>
           </div>
           <div class="user-actions">
-            <button class="btn-secondary">
+            <button class="btn-secondary" @click="saveProfile">
               <el-icon><Edit /></el-icon>
-              编辑资料
+              保存资料
             </button>
             <button class="btn-primary glow-btn">
               <el-icon><Upload /></el-icon>
@@ -98,23 +98,92 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { ElMessage } from "element-plus";
 import {
   Picture, Aim, TrendCharts, Calendar, Edit, Upload,
   Message, Location, ArrowUp, Setting,
 } from "@element-plus/icons-vue";
+import { getUserProfile, getUserStats, updateUserProfile } from "../api/user";
 
-const statsData = [
-  { value: "128", label: "总分类次数", icon: Picture, color: "cyan", trend: "+12%" },
-  { value: "892", label: "累计分类类型", icon: Aim, color: "purple", trend: "+8%" },
-  { value: "98.5%", label: "分类成功率", icon: TrendCharts, color: "green", trend: "+2.1%" },
-  { value: "12", label: "使用天数", icon: Calendar, color: "pink", trend: null },
-];
+const user = ref({
+  username: "",
+  nickname: "",
+  email: "",
+  role: "普通用户",
+  avatar_url: "",
+  location: "",
+  created_at: "",
+});
+
+const statsData = ref([
+  { value: "0", label: "总分类次数", icon: Picture, color: "cyan", trend: null },
+  { value: "0", label: "累计模型类型", icon: Aim, color: "purple", trend: null },
+  { value: "0s", label: "平均推理耗时", icon: TrendCharts, color: "green", trend: null },
+  { value: "0", label: "使用天数", icon: Calendar, color: "pink", trend: null },
+]);
 
 const settings = ref({
   emailNotify: true,
   autoSave: true,
   darkMode: true,
+});
+
+const loading = ref(false);
+
+const loadProfile = async () => {
+  try {
+    const profileRes = await getUserProfile();
+    if (profileRes.success && profileRes.data) {
+      const d = profileRes.data;
+      user.value = {
+        username: d.username || "",
+        nickname: d.nickname || d.username || "",
+        email: d.email || "",
+        role: d.role === "admin" ? "管理员" : "普通用户",
+        avatar_url: d.avatar_url || "",
+        location: d.location || "",
+        created_at: d.created_at || "",
+      };
+    }
+  } catch (e) {
+    console.error("加载用户信息失败", e);
+  }
+};
+
+const loadStats = async () => {
+  try {
+    const statsRes = await getUserStats();
+    if (statsRes.success && statsRes.data) {
+      const d = statsRes.data;
+      statsData.value = [
+        { value: String(d.total_classifications || 0), label: "总分类次数", icon: Picture, color: "cyan", trend: null },
+        { value: String(d.total_model_types || 0), label: "累计模型类型", icon: Aim, color: "purple", trend: null },
+        { value: String(d.avg_inference_time || 0) + "s", label: "平均推理耗时", icon: TrendCharts, color: "green", trend: null },
+        { value: String(d.usage_days || 0), label: "使用天数", icon: Calendar, color: "pink", trend: null },
+      ];
+    }
+  } catch (e) {
+    console.error("加载统计数据失败", e);
+  }
+};
+
+const saveProfile = async () => {
+  try {
+    await updateUserProfile({
+      nickname: user.value.nickname,
+      email: user.value.email,
+      location: user.value.location,
+    });
+    ElMessage.success("资料更新成功");
+  } catch (e) {
+    ElMessage.error("更新失败");
+  }
+};
+
+onMounted(() => {
+  loadProfile();
+  loadStats();
 });
 </script>
 
