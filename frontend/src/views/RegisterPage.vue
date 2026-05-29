@@ -160,10 +160,9 @@ const handleRegister = async () => {
       password: registerForm.password,
       nickname: registerForm.username,
     });
-    if (res.success && res.token) {
-      localStorage.setItem("token", res.token);
-      ElMessage.success("注册成功");
-      router.push("/detection");
+    if (res.success) {
+      ElMessage.success(res.message || "注册成功，请登录");
+      router.push("/login");
     } else {
       ElMessage.error(res.message || "注册失败");
     }

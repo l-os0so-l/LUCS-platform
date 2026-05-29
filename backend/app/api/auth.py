@@ -61,12 +61,10 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"sub": user.id})
     return AuthResponse(
         success=True,
-        message="注册成功",
+        message="注册成功，请登录",
         data=_to_user_response(user),
-        token=token,
     )
 
 

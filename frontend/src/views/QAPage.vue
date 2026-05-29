@@ -56,6 +56,9 @@
             <div class="typing-indicator">
               <span></span><span></span><span></span>
             </div>
+            <div v-if="showThinkingHint" class="thinking-hint">
+              正在努力思考中，请稍候…
+            </div>
           </div>
         </div>
       </div>
@@ -95,7 +98,9 @@ import { marked } from "marked";
 const question = ref("");
 const sending = ref(false);
 const isTyping = ref(false);
+const showThinkingHint = ref(false);
 const messagesRef = ref(null);
+let thinkingTimer = null;
 
 const quickQuestions = [
   "什么是土地利用分类？",
@@ -137,13 +142,23 @@ async function sendMessage() {
   messages.value.push({ role: "user", content: text, time: getCurrentTime() });
   question.value = "";
   sending.value = true;
+  showThinkingHint.value = false;
   scrollToBottom();
 
   isTyping.value = true;
   scrollToBottom();
 
+  // 8 秒后显示思考提示
+  thinkingTimer = setTimeout(() => {
+    if (isTyping.value) {
+      showThinkingHint.value = true;
+    }
+  }, 8000);
+
   try {
     const res = await chatWithAI({ message: text });
+    clearTimeout(thinkingTimer);
+    showThinkingHint.value = false;
     isTyping.value = false;
     if (res.success && res.data) {
       messages.value.push({
@@ -159,6 +174,8 @@ async function sendMessage() {
       });
     }
   } catch (error) {
+    clearTimeout(thinkingTimer);
+    showThinkingHint.value = false;
     isTyping.value = false;
     const msg = error.response?.data?.detail || error.message || "请求失败";
     messages.value.push({
@@ -409,6 +426,17 @@ async function sendMessage() {
 @keyframes typing-bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-6px); opacity: 1; }
+}
+
+.thinking-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  animation: fadeIn 0.4s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .chat-input-area {

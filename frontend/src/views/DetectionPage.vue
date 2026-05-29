@@ -103,26 +103,16 @@
             </div>
           </div>
 
-          <!-- 视频播放器区域 -->
-          <div class="video-player-area">
-            <div v-if="!videoUrl" class="video-placeholder" @click="handleTabClick('video')">
-              <el-icon class="placeholder-icon" :size="48"><Monitor /></el-icon>
-              <p class="placeholder-text">点击上传视频</p>
-              <p class="placeholder-desc">支持 mp4、avi、mov 等格式</p>
-            </div>
-            <div v-else class="video-player-wrap">
-              <video
-                ref="videoRef"
-                :src="videoUrl"
-                class="video-player"
-                controls
-                @ended="stopRealtimeDetection"
-              />
-            </div>
+          <!-- 未上传：占位提示 -->
+          <div v-if="!videoUrl" class="video-placeholder" @click="handleTabClick('video')">
+            <el-icon class="placeholder-icon" :size="48"><Monitor /></el-icon>
+            <p class="placeholder-text">点击上传视频</p>
+            <p class="placeholder-desc">支持 mp4、avi、mov 等格式</p>
           </div>
 
-          <!-- 实时分割结果展示 -->
-          <div v-if="videoUrl" class="video-result-area">
+          <!-- 已上传：左右对比布局 -->
+          <template v-else>
+            <!-- 工具栏 -->
             <div class="toolbar">
               <button
                 :class="['tool-btn', { active: videoShowMode === 'overlay' }]"
@@ -139,65 +129,100 @@
                 原图+分割
               </button>
             </div>
-            <div v-if="!videoFrameResult" class="empty-state-mini">
-              <div class="empty-orb">
-                <el-icon><CircleCheck /></el-icon>
+
+            <!-- 左右对比 -->
+            <div class="video-compare-wrap">
+              <!-- 左侧：原视频 -->
+              <div class="video-compare-card">
+                <div class="video-player-wrap">
+                  <video
+                    ref="videoRef"
+                    :src="videoUrl"
+                    class="video-player"
+                    controls
+                    @ended="stopRealtimeDetection"
+                  />
+                </div>
+                <div class="image-label">原始视频</div>
               </div>
-              <p class="empty-text">等待检测</p>
-              <p class="empty-desc">开始实时检测后，分割结果将显示在这里</p>
+
+              <!-- 右侧：检测结果 -->
+              <div class="video-compare-card">
+                <div v-if="!videoFrameResult" class="empty-state-mini" style="height:100%; justify-content:center;">
+                  <div class="empty-orb">
+                    <el-icon><CircleCheck /></el-icon>
+                  </div>
+                  <p class="empty-text">等待检测</p>
+                  <p class="empty-desc">开始实时检测后，分割结果将显示在这里</p>
+                </div>
+                <template v-else>
+                  <img
+                    v-if="videoShowMode === 'overlay'"
+                    :src="videoFrameOverlay"
+                    alt="实时叠加图"
+                    class="video-result-img"
+                  />
+                  <img
+                    v-else
+                    :src="videoFrameMask"
+                    alt="实时分割图"
+                    class="video-result-img"
+                  />
+                  <div class="image-label">
+                    {{ videoShowMode === 'overlay'
+                      ? `实时叠加图（第 ${currentFrameIndex} 帧）`
+                      : '分割结果' }}
+                  </div>
+                </template>
+              </div>
             </div>
-            <div v-else-if="videoShowMode === 'overlay'" class="image-compare single">
-              <div class="image-card wide">
-                <img :src="videoFrameOverlay" alt="实时叠加图" class="compare-image" />
-                <div class="image-label">实时叠加图（第 {{ currentFrameIndex }} 帧）</div>
-              </div>
-            </div>
-            <div v-else-if="videoShowMode === 'side'" class="image-compare">
-              <div class="image-card">
-                <video :src="videoUrl" class="compare-image" style="object-fit: contain; background: #000;" muted />
-                <div class="image-label">原始帧</div>
-              </div>
-              <div class="image-card">
-                <img :src="videoFrameMask" alt="实时分割图" class="compare-image" />
-                <div class="image-label">分割结果</div>
-              </div>
-            </div>
-          </div>
+          </template>
         </div>
 
         <!-- 右侧视频设置面板 -->
         <div class="right-panel">
-          <div class="info-card glass-card">
-            <div class="card-title-small">
-              <el-icon><SetUp /></el-icon>
-              检测设置
+          <!-- 检测设置 -->
+          <div class="info-card glass-card collapsible-card">
+            <div class="card-title-small collapsible-header" @click="settingsCollapsed = !settingsCollapsed">
+              <span class="header-left">
+                <el-icon><SetUp /></el-icon>
+                检测设置
+              </span>
+              <el-icon class="collapse-arrow" :class="{ rotated: !settingsCollapsed }"><ArrowRight /></el-icon>
             </div>
-            <div class="info-item">
-              <span class="info-label">检测模式</span>
-              <span class="info-value highlight">实时帧检测</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">分类模型</span>
-              <span class="info-value">{{ selectedModel }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">模型架构</span>
-              <span class="info-value">DeepLabV3+ / ResNet50</span>
+            <div v-show="!settingsCollapsed" class="collapsible-body">
+              <div class="info-item">
+                <span class="info-label">检测模式</span>
+                <span class="info-value highlight">实时帧检测</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">分类模型</span>
+                <span class="info-value">{{ selectedModel }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">模型架构</span>
+                <span class="info-value">DeepLabV3+ / ResNet50</span>
+              </div>
             </div>
           </div>
 
           <!-- 帧率设置 -->
-          <div class="result-card glass-card">
-            <div class="card-title-small">
-              <el-icon><Timer /></el-icon>
-              检测帧率
+          <div class="result-card glass-card collapsible-card">
+            <div class="card-title-small collapsible-header" @click="fpsCollapsed = !fpsCollapsed">
+              <span class="header-left">
+                <el-icon><Timer /></el-icon>
+                检测帧率
+              </span>
+              <el-icon class="collapse-arrow" :class="{ rotated: !fpsCollapsed }"><ArrowRight /></el-icon>
             </div>
-            <div class="param-item">
-              <div class="param-label">
-                <span>每秒检测 {{ detectionFPS }} 帧</span>
+            <div v-show="!fpsCollapsed" class="collapsible-body">
+              <div class="param-item">
+                <div class="param-label">
+                  <span>每秒检测 {{ detectionFPS }} 帧</span>
+                </div>
+                <el-slider v-model="detectionFPS" :min="1" :max="10" :step="1" :disabled="isRealtimeDetecting" />
+                <div class="param-tip">越高检测越频繁，但可能增加延迟</div>
               </div>
-              <el-slider v-model="detectionFPS" :min="1" :max="10" :step="1" :disabled="isRealtimeDetecting" />
-              <div class="param-tip">越高检测越频繁，但可能增加延迟</div>
             </div>
           </div>
 
@@ -283,54 +308,8 @@
           </div>
         </div>
 
-        <!-- 工具栏 -->
-        <div class="toolbar">
-          <button
-            :class="['tool-btn', { active: showMode === 'side' }]"
-            @click="showMode = 'side'"
-          >
-            <el-icon><CopyDocument /></el-icon>
-            原图+分割
-          </button>
-          <button
-            :class="['tool-btn', { active: showMode === 'overlay' }]"
-            @click="showMode = 'overlay'"
-          >
-            <el-icon><View /></el-icon>
-            叠加图
-          </button>
-          <button
-            :class="['tool-btn', { active: showMode === 'grid' }]"
-            @click="showMode = 'grid'"
-          >
-            <el-icon><Grid /></el-icon>
-            三图对比
-          </button>
-        </div>
-
-        <!-- 图片展示区域 -->
-        <div class="image-compare" v-if="showMode === 'side'">
-          <div class="image-card">
-            <img :src="originalImage || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&h=400&fit=crop'" alt="原始图片" class="compare-image" />
-            <div class="image-label">原始图片</div>
-          </div>
-          <div class="image-card">
-            <img :src="resultImage || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&h=400&fit=crop'" alt="分割结果" class="compare-image" />
-            <div class="image-label">分割结果</div>
-            <div class="detection-mark" v-if="detectionResult">
-              <el-icon><Check /></el-icon>
-            </div>
-          </div>
-        </div>
-
-        <div class="image-compare single" v-else-if="showMode === 'overlay'">
-          <div class="image-card wide">
-            <img :src="overlayImage || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&h=500&fit=crop'" alt="叠加图" class="compare-image" />
-            <div class="image-label">叠加图（原图 + 分割半透明叠加）</div>
-          </div>
-        </div>
-
-        <div class="image-compare grid" v-else-if="showMode === 'grid'">
+        <!-- 三图对比展示 -->
+        <div class="image-compare grid">
           <div class="image-card">
             <img :src="originalImage || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400&h=300&fit=crop'" alt="原始图片" class="compare-image" />
             <div class="image-label">原始图片</div>
@@ -356,6 +335,40 @@
           >
             <img :src="item.originalUrl" :alt="item.fileName" />
             <span class="thumb-label" :title="item.fileName">{{ item.fileName }}</span>
+          </div>
+        </div>
+
+        <!-- AI 诊断建议 -->
+        <div class="result-card diagnosis-card" style="margin-top: 12px;">
+          <div class="card-title-small">
+            <el-icon><ChatDotRound /></el-icon>
+            AI 诊断建议
+          </div>
+          <div class="diagnosis-content">
+            <div class="diagnosis-avatar">
+              <el-icon><MagicStick /></el-icon>
+            </div>
+            <p v-if="!detectionResult" class="diagnosis-placeholder">未识别到指定类型，请上传影像获取AI分析</p>
+            <div v-else>
+              <p class="diagnosis-text">
+                影像总像素 <strong>{{ detectionResult.total_pixels.toLocaleString() }}</strong>，
+                推理耗时 <strong>{{ detectionResult.inference_time }}s</strong>。
+                主要土地类型为 <span class="highlight-text">{{ dominantClass }}</span>，
+                占比 <strong>{{ dominantRatio }}%</strong>。
+              </p>
+              <p v-if="forestRatio > 20" class="advice-tip">
+                🌲 森林覆盖率较高，生态环境良好。
+              </p>
+              <p v-if="buildingRatio > 30" class="advice-tip">
+                🏙️ 建筑用地占比较高，城镇化程度较强。
+              </p>
+              <p v-if="agriRatio > 40" class="advice-tip">
+                🌾 耕地资源丰富，农业发展潜力大。
+              </p>
+              <p v-if="waterRatio > 15" class="advice-tip">
+                💧 水域面积可观，注意水资源保护。
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -386,9 +399,6 @@
               <span class="info-label">输入尺寸</span>
               <span class="info-value">512 × 512</span>
             </div>
-          </div>
-          <div v-if="modelInfoCollapsed" class="info-collapsed-note">
-            点击展开模型信息
           </div>
         </div>
 
@@ -421,40 +431,6 @@
                 <span class="stat-name">{{ stat.class_name }}</span>
                 <span class="stat-ratio">{{ (stat.pixel_ratio * 100).toFixed(1) }}%</span>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI诊断建议 -->
-        <div class="result-card glass-card">
-          <div class="card-title-small">
-            <el-icon><ChatDotRound /></el-icon>
-            AI 诊断建议
-          </div>
-          <div class="diagnosis-content">
-            <div class="diagnosis-avatar">
-              <el-icon><MagicStick /></el-icon>
-            </div>
-            <p v-if="!detectionResult" class="diagnosis-placeholder">未识别到指定类型，请上传影像获取AI分析</p>
-            <div v-else>
-              <p class="diagnosis-text">
-                影像总像素 <strong>{{ detectionResult.total_pixels.toLocaleString() }}</strong>，
-                推理耗时 <strong>{{ detectionResult.inference_time }}s</strong>。
-                主要土地类型为 <span class="highlight-text">{{ dominantClass }}</span>，
-                占比 <strong>{{ dominantRatio }}%</strong>。
-              </p>
-              <p v-if="forestRatio > 20" class="advice-tip">
-                🌲 森林覆盖率较高，生态环境良好。
-              </p>
-              <p v-if="buildingRatio > 30" class="advice-tip">
-                🏙️ 建筑用地占比较高，城镇化程度较强。
-              </p>
-              <p v-if="agriRatio > 40" class="advice-tip">
-                🌾 耕地资源丰富，农业发展潜力大。
-              </p>
-              <p v-if="waterRatio > 15" class="advice-tip">
-                💧 水域面积可观，注意水资源保护。
-              </p>
             </div>
           </div>
         </div>
@@ -517,6 +493,8 @@ const videoFrameMask = ref("");         // 当前帧分割图 base64
 const currentFrameIndex = ref(0);       // 当前帧序号
 const detectionFPS = ref(3);            // 检测帧率（fps）
 const videoShowMode = ref("overlay");   // 视频结果展示模式: overlay / side
+const settingsCollapsed = ref(true);    // 检测设置默认折叠
+const fpsCollapsed = ref(true);         // 检测帧率默认折叠
 let detectionTimer = null;              // 检测定时器
 let isProcessingFrame = false;          // 防止同时处理多帧
 
@@ -1091,16 +1069,17 @@ watch(activeTab, (newVal) => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   flex: 0 0 auto;
-  max-height: 320px;
+  max-height: 420px;
 }
 .image-card {
   flex: 1;
   position: relative;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--border-radius-md);
   overflow: hidden;
   background: rgba(15, 23, 42, 0.4);
   border: 1px solid var(--border-color);
-  aspect-ratio: 1 / 1;
   max-height: 420px;
 }
 .image-card.wide {
@@ -1109,19 +1088,18 @@ watch(activeTab, (newVal) => {
 }
 .compare-image {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   object-fit: contain;
 }
 .image-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px 14px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-  color: #ffffff;
+  padding: 8px 10px;
+  text-align: center;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
+  background: rgba(15, 23, 42, 0.6);
+  border-top: 1px solid var(--border-color);
 }
 .detection-mark {
   position: absolute;
@@ -1475,17 +1453,6 @@ watch(activeTab, (newVal) => {
   flex-direction: column;
   gap: 16px;
 }
-.video-panel .video-player-area,
-.video-panel .video-result-area {
-  flex: 1;
-  min-height: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.video-panel .video-player-area {
-  margin-bottom: 0;
-}
 .video-placeholder {
   display: flex;
   flex-direction: column;
@@ -1514,22 +1481,46 @@ watch(activeTab, (newVal) => {
   font-size: 12px;
   color: var(--text-muted);
 }
-.video-player-wrap {
-  border-radius: var(--border-radius-md);
-  overflow: hidden;
-  background: #000;
+
+/* 左右对比容器 */
+.video-compare-wrap {
+  display: flex;
+  gap: 16px;
   flex: 1;
   min-height: 0;
+  align-items: stretch;
 }
-.video-player {
+.video-compare-card {
+  flex: 1;
+  position: relative;
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+}
+.video-compare-card .video-player-wrap {
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-compare-card .video-player {
   width: 100%;
   height: 100%;
-  max-height: none;
+  max-height: 420px;
   display: block;
   object-fit: contain;
 }
-.video-result-area {
-  margin-top: 0;
+.video-result-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .param-item {
   display: flex;
@@ -1543,5 +1534,49 @@ watch(activeTab, (newVal) => {
 .param-tip {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* 折叠卡片 */
+.collapsible-card {
+  overflow: hidden;
+}
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0;
+  padding: 2px 0;
+}
+.collapsible-header:hover {
+  color: var(--accent-cyan);
+}
+.collapsible-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.collapse-arrow {
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: transform 0.3s ease;
+}
+.collapse-arrow.rotated {
+  transform: rotate(90deg);
+}
+.collapsible-body {
+  padding-top: 14px;
+  animation: collapseIn 0.25s ease;
+}
+@keyframes collapseIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

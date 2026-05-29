@@ -2,11 +2,11 @@
 AI 问答接口 — 对接 Kimi (Moonshot) API
 """
 import logging
-from typing import List
+import time
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from openai import OpenAI
+from openai import OpenAI, APIError
 
 from app.config import settings
 
@@ -31,6 +31,11 @@ SYSTEM_PROMPT = (
     "\n4. 回答简洁、友好，使用中文。"
 )
 
+# 轻量快模型，适合短文本问答
+MODEL_NAME = "moonshot-v1-8k"
+REQUEST_TIMEOUT = 15  # 单次请求超时（秒）
+MAX_RETRIES = 2       # 最多重试次数（含首次共 2 次）
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -51,27 +56,52 @@ def _get_client() -> OpenAI:
     )
 
 
+def _call_kimi(client: OpenAI, message: str) -> str:
+    """调用 Kimi API，带超时。"""
+    completion = client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": message},
+        ],
+        max_tokens=1024,
+        timeout=REQUEST_TIMEOUT,
+    )
+    return completion.choices[0].message.content
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    """调用 Kimi API 进行单轮问答"""
-    try:
-        client = _get_client()
-        completion = client.chat.completions.create(
-            model="kimi-k2.6",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": req.message},
-            ],
-            max_tokens=2048,
-        )
-        reply = completion.choices[0].message.content
-        return ChatResponse(
-            success=True,
-            message="请求成功",
-            data={"reply": reply},
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Kimi API 调用失败")
-        raise HTTPException(status_code=500, detail=f"AI 服务暂时不可用: {str(e)}")
+    """调用 Kimi API 进行单轮问答（带重试）"""
+    client = _get_client()
+    last_error = None
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            start = time.time()
+            reply = _call_kimi(client, req.message)
+            elapsed = time.time() - start
+            logger.info(f"Kimi API 调用成功，模型={MODEL_NAME}，耗时={elapsed:.2f}s，尝试次数={attempt}")
+            return ChatResponse(
+                success=True,
+                message="请求成功",
+                data={"reply": reply},
+            )
+        except HTTPException:
+            raise
+        except APIError as e:
+            last_error = e
+            logger.warning(f"Kimi API 调用失败（尝试 {attempt}/{MAX_RETRIES}）: {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(0.5 * attempt)  # 指数退避：0.5s, 1s
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Kimi API 调用异常（尝试 {attempt}/{MAX_RETRIES}）: {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(0.5 * attempt)
+
+    logger.exception("Kimi API 多次重试后仍失败")
+    raise HTTPException(
+        status_code=500,
+        detail=f"AI 服务暂时不可用，请稍后再试。"
+    )
